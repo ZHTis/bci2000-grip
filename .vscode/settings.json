@@ -1,0 +1,9 @@
+{
+    "cmake.sourceDirectory": "C:/Users/heting/Documents/bci2000/build",
+    "cmake.buildDirectory": "C:/Users/heting/Documents/bci2000/build",
+    "cmake.defaultVariants": {
+        "buildType": {
+            "default": "release"
+        }
+    }
+}

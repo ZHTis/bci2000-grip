@@ -1,0 +1,52 @@
+# ============================================================
+#  白名单式 .gitignore —— 只跟踪自己写的 GripForce / NI6501 代码
+#  规则：默认忽略一切，再逐级放行自定义文件。
+#  （未被放行的几万个文件 = BCI2000 自带，不纳入备份）
+# ============================================================
+
+# 1) 默认忽略根目录下所有内容
+/*
+
+# 2) 放行根目录配置/文档
+!/.gitignore
+!/README.md
+
+# 3) 放行自定义启动脚本（batch 目录里只留这一个）
+!/batch/
+/batch/*
+!/batch/GripForceTask_GripForceSource.bat
+
+# 4) 放行自定义参数文件
+!/parms/
+/parms/*
+!/parms/gripforce_test.prm
+
+# 5) 放行 VSCode 构建配置
+!/.vscode/
+/.vscode/*
+!/.vscode/settings.json
+
+# 6) 逐级下钻到 src/core
+!/src/
+/src/*
+!/src/core/
+/src/core/*
+
+#   6a) 应用层：保留注册用 CMakeLists + GripForceTask 模块
+!/src/core/Application/
+/src/core/Application/*
+!/src/core/Application/CMakeLists.txt
+!/src/core/Application/GripForceTask/
+/src/core/Application/GripForceTask/out/
+
+#   6b) 信号源：保留注册用 CMakeLists + GripForceSource 模块
+!/src/core/SignalSource/
+/src/core/SignalSource/*
+!/src/core/SignalSource/CMakeLists.txt
+!/src/core/SignalSource/GripForceSource/
+
+#   6c) 工具：保留注册用 CMakeLists + NI6501Marker 模块
+!/src/core/Tools/
+/src/core/Tools/*
+!/src/core/Tools/CMakeLists.txt
+!/src/core/Tools/NI6501Marker/
