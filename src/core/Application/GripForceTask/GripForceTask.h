@@ -13,7 +13,7 @@
 //
 // 接入方式：
 //   握力传感器 → EEG放大器AUX通道 → Channel "GripForce"
-//   或通过SignalGenerator仿真（鼠标Y轴模拟握力）
+//   或通过SignalGenerator/GripForceSource仿真输入
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef GRIP_FORCE_TASK_H
 #define GRIP_FORCE_TASK_H

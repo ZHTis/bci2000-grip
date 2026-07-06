@@ -16,7 +16,7 @@
 //   - 传感器模拟电压输出 → EEG放大器AUX通道
 //   - 在参数 GripForceChannel 填入对应通道号（1-based）
 //   - 在参数 GripForceMin/Max 填入传感器的实际电压范围
-//   - 仿真测试时设 GripForceChannel=0，用鼠标Y轴代替
+//   - 仿真测试时设 GripForceChannel=0，使用传入的第1个ControlSignal通道
 ////////////////////////////////////////////////////////////////////////////////
 #include "GripForceTask.h"
 
@@ -97,7 +97,7 @@ GripForceTask::GripForceTask()
 
         // 握力传感器参数
         "Application:GripForce int GripForceChannel= 0 0 0 % "
-        " // 握力信号通道号(1-based)，0=使用鼠标Y轴仿真",
+        " // 握力信号通道号(1-based)，0=使用第1个ControlSignal通道",
 
         "Application:GripForce float GripForceMin= 0.0 0.0 % % "
         " // 传感器最小值（对应球最低位置，单位与信号单位一致）",
@@ -137,15 +137,15 @@ GripForceTask::GripForceTask()
         "(enumeration)",
 
         // 目标参数
-        // 握力垂直任务：目标固定在底部（被试需将球控制到下方目标）
+        // 握力垂直任务：目标默认固定在顶部（被试需用握力将球托到上方目标）
         "Application:Targets int NumberTargets= 1 1 1 4 "
-        " // 目标数量（只在底部=1）",
+        " // 目标数量（默认顶部单目标=1）",
 
         "Application:Targets matrix Targets= "
             " 1 "
             " [pos%20x pos%20y pos%20z width%20x width%20y width%20z] "
-            "  50  20  50 20 20 20 "
-            " // 目标位置与大小（百分比坐标，单个底部目标）",
+            "  50  80  50 20 20 20 "
+            " // 目标位置与大小（百分比坐标，单个顶部目标）",
 
         "Application:Targets int TargetColor= 0x808080 % % % "
         " // 目标颜色 (color)",
@@ -170,26 +170,32 @@ GripForceTask::GripForceTask()
         " // 光标（球）起始位置",
 
         // 3D环境
-        "Application:3DEnvironment floatlist CameraPos= 3 50 70 140 % % "
-        " // 摄像机位置（保持和CursorTask一致）",
+        "Application:3DEnvironment floatlist CameraPos= 3 90 35 20 % % "
+        " // 摄像机位置：俯视图五点钟方向，低三分之一高度",
 
-        "Application:3DEnvironment floatlist CameraAim= 3 50 50 50 % % "
-        " // 摄像机朝向",
+        "Application:3DEnvironment floatlist CameraAim= 3 50 62 50 % % "
+        " // 摄像机朝向：从低位斜向上看运动范围",
 
-        "Application:3DEnvironment int CameraProjection= 0 0 0 2 "
+        "Application:3DEnvironment int CameraProjection= 2 0 0 2 "
         " // 投影类型: 0:平行 1:广角透视 2:窄角透视 (enumeration)",
 
-        "Application:3DEnvironment floatlist LightSourcePos= 3 50 50 100 % % "
+        "Application:3DEnvironment floatlist LightSourcePos= 3 65 85 45 % % "
         " // 光源位置",
 
         "Application:3DEnvironment int LightSourceColor= 0x808080 % % "
         " // 光源颜色 (color)",
 
-        "Application:3DEnvironment int WorkspaceBoundaryColor= 0xffffff 0 % % "
+        "Application:3DEnvironment int WorkspaceBoundaryColor= 0x303030 0 % % "
         " // 工作区边界颜色 (color)",
 
-        "Application:3DEnvironment string WorkspaceBoundaryTexture= images/grid.bmp % % % "
-        " // 工作区纹理 (inputfile)",
+        "Application:3DEnvironment floatlist WorkspaceBoundaryPos= 3 50 50 50 % % "
+        " // 工作区中心位置",
+
+        "Application:3DEnvironment floatlist WorkspaceBoundarySize= 3 100 100 100 % % "
+        " // 工作区尺寸",
+
+        "Application:3DEnvironment string WorkspaceBoundaryTexture= % % % % "
+        " // 工作区纹理（空=不显示网格） (inputfile)",
 
     END_PARAMETER_DEFINITIONS
 
@@ -218,9 +224,10 @@ GripForceTask::GripForceTask()
     // ----------------------------------------------------------------
     GUI::Rect rect = {0.5f, 0.4f, 0.5f, 0.6f};
     mpMessage = new TextField(mrWindow);
-    mpMessage->SetTextColor(RGBColor::Lime)
-               .SetTextHeight(0.8f)
-               .SetColor(RGBColor::Gray)
+    mpMessage->SetTextColor(RGBColor(0x79b88a))
+               .SetFontFamily("Bahnschrift SemiBold")
+               .SetTextHeight(0.62f)
+               .SetColor(RGBColor::NullColor)
                .SetScalingMode(GUI::ScalingMode::AdjustWidth)
                .SetObjectRect(rect);
 }
@@ -252,11 +259,14 @@ void GripForceTask::OnPreflight(const SignalProperties& Input) const
     Parameter("MVCThreshold");
     Parameter("ParadigmType");
     Parameter("LiftGain");
-    Parameter("GravityForce");
+    if (Parameter("GravityForce") < 0)
+        bcierr << "GravityForce must be non-negative; it is treated as a downward force magnitude";
     Parameter("CursorDamping");
 
     // ---- 场景相关参数检查（必须与 OnInitialize / FeedbackScene 访问的参数一致）----
-    const char* vectorParams[] = {"CameraPos", "CameraAim", "LightSourcePos", "CursorPos"};
+    const char* vectorParams[] = {
+        "CameraPos", "CameraAim", "LightSourcePos", "CursorPos",
+        "WorkspaceBoundaryPos", "WorkspaceBoundarySize"};
     for (auto p : vectorParams)
         if (Parameter(p)->NumValues() != 3)
             bcierr << "参数 " << p << " 必须有3个值";
@@ -433,8 +443,9 @@ void GripForceTask::OnFeedbackBegin()
 {
     mCurFeedbackDuration = 0;
 
-    // 球从中央开始，速度清零
+    // 球从中央开始，速度和上一试次的平滑握力清零
     mBallVelocityY = 0.0f;
+    mCurrentGripForce = 0.0f;
     MoveCursorTo(50.0f, 50.0f, 50.0f);
     mpFeedbackScene->SetCursorVisible(true);
 
@@ -512,7 +523,8 @@ void GripForceTask::DoFeedback(const GenericSignal& ControlSignal, bool& doProgr
     Vector3D pos = mpFeedbackScene->CursorPosition();
 
     float upForce  = mLiftGain * mCurrentGripForce;   // 握力≥0 → 只产生向上的力
-    float netForce = upForce - mGravityForce;         // 向下的重力恒定存在
+    float gravity  = std::fabs(mGravityForce);        // 重力参数表示大小，方向固定向下
+    float netForce = upForce - gravity;               // 向下的重力恒定存在
     mBallVelocityY += netForce;                       // 力 → 速度增量（积分加速度）
     mBallVelocityY *= mCursorDamping;                 // 阻尼，防止惯性失控
     pos.y += mBallVelocityY;                          // 速度 → 位置
@@ -560,7 +572,7 @@ void GripForceTask::DoITI(const GenericSignal&, bool&) {}
 ////////////////////////////////////////////////////////////////////////////////
 
 // 从信号中读取握力值（取幅度大小，与方向/正负无关）
-// GripForceChannel=0 时使用ControlSignal第1通道（SignalGenerator鼠标仿真）
+// GripForceChannel=0 时使用ControlSignal第1通道
 float GripForceTask::GetGripForceFromSignal(const GenericSignal& signal) const
 {
     int ch = (mGripForceChannel > 0) ? (mGripForceChannel - 1) : 0;
