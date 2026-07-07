@@ -29,6 +29,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <thread>
 
@@ -92,7 +94,7 @@ GripForceTask::GripForceTask()
         " // rendering quality: 0: low(2D), 1: high(3D) (enumeration)",
 
         // 试次时序
-        "Application:Sequencing float MaxFeedbackDuration= 4s % 0 % "
+        "Application:Sequencing float MaxFeedbackDuration= 15s % 0 % "
         " // 每个trial最长反馈时间，超时算失败",
 
         // 握力传感器参数
@@ -170,16 +172,16 @@ GripForceTask::GripForceTask()
         " // 光标（球）起始位置",
 
         // 3D环境
-        "Application:3DEnvironment floatlist CameraPos= 3 90 35 20 % % "
-        " // 摄像机位置：俯视图五点钟方向，低三分之一高度",
+        "Application:3DEnvironment floatlist CameraPos= 3 50 70 140 % % "
+        " // 摄像机位置（保持和CursorTask一致）",
 
-        "Application:3DEnvironment floatlist CameraAim= 3 50 62 50 % % "
-        " // 摄像机朝向：从低位斜向上看运动范围",
+        "Application:3DEnvironment floatlist CameraAim= 3 50 50 50 % % "
+        " // 摄像机朝向",
 
-        "Application:3DEnvironment int CameraProjection= 2 0 0 2 "
+        "Application:3DEnvironment int CameraProjection= 0 0 0 2 "
         " // 投影类型: 0:平行 1:广角透视 2:窄角透视 (enumeration)",
 
-        "Application:3DEnvironment floatlist LightSourcePos= 3 65 85 45 % % "
+        "Application:3DEnvironment floatlist LightSourcePos= 3 50 50 100 % % "
         " // 光源位置",
 
         "Application:3DEnvironment int LightSourceColor= 0x808080 % % "
@@ -234,6 +236,7 @@ GripForceTask::GripForceTask()
 
 GripForceTask::~GripForceTask()
 {
+    SaveCameraToPrm();
     CloseMarkerDevice();
     delete mpFeedbackScene;
 }
@@ -340,6 +343,7 @@ void GripForceTask::OnInitialize(const SignalProperties& /*Input*/)
         : static_cast<FeedbackScene*>(new FeedbackScene3D(mrWindow));
     mpFeedbackScene->Initialize();
     mpFeedbackScene->SetCursorColor(mCursorColorFront);
+    SetCameraControlsEnabled(true);
 
     // 追踪任务：预生成目标轨迹（正弦波，周期约为feedbackDuration的一半）
     if (mParadigmType == 2) {
@@ -352,6 +356,11 @@ void GripForceTask::OnInitialize(const SignalProperties& /*Input*/)
 
     // 握力实时可视化窗口
     mGripVis.Send(CfgID::WindowTitle, "Grip Force");
+    SignalProperties gripVisProperties(2, 1, SignalType::float32);
+    gripVisProperties.ChannelLabels()[0] = "force_norm";
+    gripVisProperties.ChannelLabels()[1] = "raw_voltage_norm";
+    gripVisProperties.ValueUnit().SetRawMin(0).SetRawMax(1).SetGain(1).SetOffset(0).SetSymbol("");
+    mGripVis.Send(gripVisProperties);
     mGripVis.Send(CfgID::NumSamples,  256);
 
     // NI6501 硬件打标设备
@@ -368,6 +377,7 @@ void GripForceTask::OnInitialize(const SignalProperties& /*Input*/)
 ////////////////////////////////////////////////////////////////////////////////
 void GripForceTask::OnStartRun()
 {
+    SetCameraControlsEnabled(false);
     ++mRunCount;
     mTrialCount = 0;
     mHits = mMisses = mTimeouts = 0;
@@ -383,6 +393,7 @@ void GripForceTask::OnStartRun()
 
 void GripForceTask::OnStopRun()
 {
+    SaveCameraToPrm();
     AppLog << "Run #" << mRunCount << " 结束: "
            << mTrialCount << " trials | "
            << mHits << " hits | "
@@ -510,8 +521,9 @@ void GripForceTask::DoFeedback(const GenericSignal& ControlSignal, bool& doProgr
     State("GripForceRaw")        = std::max(0, std::min(65535, rawVal));
 
     // 实时可视化：标量握力值需包装成单通道单采样的GenericSignal
-    GenericSignal gripVisSignal(1, 1);
+    GenericSignal gripVisSignal(2, 1);
     gripVisSignal(0, 0) = mCurrentGripForce;
+    gripVisSignal(1, 0) = NormalizeGripForce(rawGrip);
     mGripVis.Send(gripVisSignal);
 
     // ------------------------------------------------------------------
@@ -614,6 +626,70 @@ void GripForceTask::DisplayMessage(const std::string& msg)
         mpMessage->SetText(" " + msg + " ");
         mpMessage->Show();
     }
+}
+
+void GripForceTask::SetCameraControlsEnabled(bool enabled)
+{
+    if (auto scene3D = dynamic_cast<FeedbackScene3D*>(mpFeedbackScene))
+        scene3D->SetCameraControlsEnabled(enabled);
+}
+
+void GripForceTask::SaveCameraToPrm() const
+{
+    auto scene3D = dynamic_cast<FeedbackScene3D*>(mpFeedbackScene);
+    if (!scene3D)
+        return;
+
+    std::string path = FileUtils::AbsolutePath("../parms/examples/GripForceTask_GripForceSource.prm");
+    if (!FileUtils::IsFile(path))
+        path = FileUtils::AbsolutePath("parms/examples/GripForceTask_GripForceSource.prm");
+    if (!FileUtils::IsFile(path))
+        return;
+
+    std::ifstream in(path);
+    if (!in)
+        return;
+
+    std::vector<std::string> lines;
+    std::string line;
+    while (std::getline(in, line))
+        lines.push_back(line);
+    in.close();
+
+    auto formatVector = [](const char* name, const Vector3D& v, const char* comment) {
+        std::ostringstream s;
+        s << std::fixed << std::setprecision(3)
+          << "Application:3DEnvironment floatlist " << name << "= 3 "
+          << v.x << " " << v.y << " " << v.z << " % % // " << comment;
+        return s.str();
+    };
+
+    const std::string cameraPos = formatVector("CameraPos", scene3D->CameraPosition(), "camera position");
+    const std::string cameraAim = formatVector("CameraAim", scene3D->CameraAim(), "camera aim");
+    bool wrotePos = false, wroteAim = false;
+    for (auto& l : lines)
+    {
+        if (l.find("Application:3DEnvironment floatlist CameraPos=") != std::string::npos)
+        {
+            l = cameraPos;
+            wrotePos = true;
+        }
+        else if (l.find("Application:3DEnvironment floatlist CameraAim=") != std::string::npos)
+        {
+            l = cameraAim;
+            wroteAim = true;
+        }
+    }
+    if (!wrotePos)
+        lines.push_back(cameraPos);
+    if (!wroteAim)
+        lines.push_back(cameraAim);
+
+    std::ofstream out(path, std::ios::trunc);
+    if (!out)
+        return;
+    for (const auto& l : lines)
+        out << l << "\n";
 }
 
 void GripForceTask::UpdateTargetVisibility()

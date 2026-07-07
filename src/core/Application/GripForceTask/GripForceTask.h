@@ -54,6 +54,8 @@ private:
     void MoveCursorTo(float x, float y, float z);
     void DisplayMessage(const std::string& msg);
     void UpdateTargetVisibility();
+    void SetCameraControlsEnabled(bool enabled);
+    void SaveCameraToPrm() const;
     float NormalizeGripForce(float raw) const;
     float GetGripForceFromSignal(const GenericSignal& signal) const;
     void GenerateTrackingTarget();
