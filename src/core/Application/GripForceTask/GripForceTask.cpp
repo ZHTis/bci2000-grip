@@ -107,7 +107,7 @@ GripForceTask::GripForceTask()
         "Application:GripForce float GripForceMax= 1.0 1.0 % % "
         " // 传感器最大值（对应球最高位置）",
 
-        "Application:GripForce float GripForceSmoothing= 0.8 0.8 0.0 0.99 "
+        "Application:GripForce float GripForceSmoothing= 0.0 0.0 0.0 0.99 "
         " // 握力低通平滑系数(0=无平滑, 0.99=极平滑)",
 
         "Application:GripForce float MVCThreshold= 0.3 0.3 0.0 1.0 "
@@ -509,9 +509,8 @@ void GripForceTask::DoFeedback(const GenericSignal& ControlSignal, bool& doProgr
     float rawGrip = GetGripForceFromSignal(ControlSignal);
     float normGrip = NormalizeGripForce(rawGrip);
 
-    // 低通平滑（指数移动平均）
-    mCurrentGripForce = mGripForceSmoothing * mCurrentGripForce
-                      + (1.0f - mGripForceSmoothing) * normGrip;
+    // 等比 不做修改
+    mCurrentGripForce = normGrip;
 
     // 保存到State（16bit: 0-65535）。原始信号可能为负或越界，必须限幅到合法范围，
     // 否则负值会被当成无符号大数(如4294967295)写入16位State而导致崩溃。
