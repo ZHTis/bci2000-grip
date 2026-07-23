@@ -4,7 +4,7 @@
 // BCI2000 Signal Source Module: Grip Force Source
 //
 // InputMode:
-//   0 - Mouse left button, binary 0/1 for simulation.
+//   0 - Mouse left button, outputting MouseForce while pressed.
 //   1 - Arduino serial CSV line: temperature,voltage
 ////////////////////////////////////////////////////////////////////////////////
 #include "GripForceSourceADC.h"
@@ -30,6 +30,7 @@ RegisterFilter(GripForceSourceADC, 1);
 GripForceSourceADC::GripForceSourceADC()
     : mInputMode(0),
       mGain(1.0),
+      mMouseForce(5.0),
       mSourceCh(1),
       mTargetChannel(0),
       mLastSerialValue(0.0)
@@ -69,6 +70,8 @@ void GripForceSourceADC::Publish()
             "// input source: 0 mouse left button, 1 Arduino serial voltage (enumeration)",
         "Source:GripForce float Gain= 1.0 1.0 0.0 % "
             "// raw input scaling factor",
+        "Source:GripForce float MouseForce= 5.0 5.0 0.0 % "
+            "// raw force emitted while the left mouse button is pressed",
         "Source:GripForce int TargetChannel= 1 1 1 % "
             "// channel the force is written to (1-based); other channels output 0",
 
@@ -105,6 +108,7 @@ void GripForceSourceADC::Preflight(const SignalProperties &, SignalProperties &O
                << " out of channel range [1, " << Parameter("SourceCh") << "]";
 
     int inputMode = Parameter("InputMode");
+    Parameter("MouseForce");
     if (inputMode == 1)
     {
         std::string port = Parameter("SerialPort");
@@ -122,6 +126,7 @@ void GripForceSourceADC::Initialize(const SignalProperties &, const SignalProper
 {
     mInputMode = Parameter("InputMode");
     mGain = Parameter("Gain");
+    mMouseForce = Parameter("MouseForce");
     mSourceCh = Parameter("SourceCh");
     mTargetChannel = Parameter("TargetChannel") - 1;
     mLastSerialValue = 0.0;
@@ -149,7 +154,7 @@ double GripForceSourceADC::ReadMouseInput() const
 #if _WIN32
     enum { isPressed = 0x8000 };
     bool leftButton = (::GetAsyncKeyState(VK_LBUTTON) & isPressed) != 0;
-    return leftButton ? 1.0 : 0.0;
+    return leftButton ? mMouseForce : 0.0;
 #else
     return 0.0;
 #endif

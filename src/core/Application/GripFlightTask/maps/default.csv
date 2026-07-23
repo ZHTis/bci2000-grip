@@ -1,0 +1,12 @@
+# type,x,y,width,height,assetId
+type,x,y,width,height,assetId
+bottom,100,10,18,30,obstacle_bottom
+top,180,87.5,18,25,obstacle_top
+bottom,240,24,18,48,obstacle_bottom
+top,340,94,18,12,obstacle_top
+bottom,440,10,18,20,obstacle_bottom
+top,500,81,18,38,obstacle_top
+bottom,660,20,18,40,obstacle_bottom
+top,660,91,18,18,obstacle_top
+bottom,820,12.5,18,25,obstacle_bottom
+top,820,84,18,32,obstacle_top

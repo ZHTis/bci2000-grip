@@ -1,0 +1,38 @@
+Source:GripForce int InputMode= 0 0 0 1 // input source: 0 mouse left button, 1 Arduino serial voltage
+Source:GripForce float Gain= 1.0 1.0 0.0 % // raw input scaling factor
+Source:GripForce float MouseForce= 5.0 5.0 0.0 % // force emitted while the left mouse button is pressed
+Source:GripForce int TargetChannel= 1 1 1 % // channel receiving grip force (1-based)
+Source:GripForce string SerialPort= COM6 % % % // Arduino serial port; used only when InputMode=1
+Source:GripForce int SerialBaud= 115200 115200 9600 % // Arduino baud rate; used only when InputMode=1
+
+Application:Application%20Window int WindowWidth= 1200 1200 0 % // application window width in pixels
+Application:Application%20Window int WindowHeight= 500 500 0 % // application window height in pixels
+
+Application:Sequencing float PreRunDuration= 1s 1s 0 %
+Application:Sequencing float PreFeedbackDuration= 1s 1s 0 %
+Application:Sequencing float FeedbackDuration= 45s 45s 1s %
+Application:Sequencing float PostFeedbackDuration= 1s 1s 0 %
+Application:Sequencing float ITIDuration= 1s 1s 0 %
+Application:Sequencing int NumberOfTrials= 10 10 1 %
+Application:Targets int NumberTargets= 1 1 1 1
+
+Application:GripInput int GripForceChannel= 1 1 1 %
+Application:GripInput float GripForceMin= 0 0 % %
+Application:GripInput float GripForceMax= 5 5 % %
+Application:GripInput float GripForceSmoothing= 0.2 0.2 0 1
+
+Application:FlightPhysics float ForwardSpeed= 30 30 0 %
+Application:FlightPhysics float LiftGain= 80 80 0 %
+Application:FlightPhysics float Gravity= 25 25 0 %
+Application:FlightPhysics float FlightDamping= 0.98 0.98 0 1
+Application:FlightPhysics floatlist PlayerStart= 2 20 50 % %
+Application:FlightPhysics floatlist PlayerSize= 2 20 20 % %
+
+Application:FlightMap float WorldHeight= 90 90 1 %
+Application:FlightMap float CameraViewWidth= 160 160 10 % // fallback view width before window size is available
+Application:FlightMap string MapFile= ../src/core/Application/GripFlightTask/maps/default.csv % % %
+
+Application:FlightAssets string PlayerImage= ../src/core/Application/GripFlightTask/assets/player.svg % % %
+Application:FlightAssets string BackgroundImage= ../src/core/Application/GripFlightTask/assets/background.svg % % %
+Application:FlightAssets string TopObstacleImage= % % % %
+Application:FlightAssets string BottomObstacleImage= % % % %

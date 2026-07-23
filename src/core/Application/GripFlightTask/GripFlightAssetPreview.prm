@@ -1,0 +1,7 @@
+Application:AssetPreview string PreviewAsset= C:\Users\heting\Documents\bci2000\src\core\Application\GripFlightTask\assets\player.svg % % %
+Application:AssetPreview floatlist PreviewCenter= 2 50 50 % %
+Application:AssetPreview floatlist PreviewSize= 2 100 100 % %
+Application:AssetPreview int PreviewCheckerboard= 1 1 0 1
+Application:AssetPreview int PreviewBackgroundColor= 0x30343b % % %
+Application:AssetPreview int CheckerLightColor= 0xd8dbe0 % % %
+Application:AssetPreview int CheckerDarkColor= 0xaeb4bd % % %

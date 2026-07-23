@@ -4,7 +4,7 @@
 // BCI2000 Signal Source Module: Grip Force Source
 //
 // InputMode:
-//   0 - Mouse left button, binary 0/1 for simulation.
+//   0 - Mouse left button, outputting MouseForce while pressed.
 //   1 - Arduino serial CSV line: temperature,voltage
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef GRIP_FORCE_SOURCE_ADC_H
@@ -54,6 +54,7 @@ class GripForceSourceADC : public GenericADC
 
     int mInputMode;
     double mGain;
+    double mMouseForce;
     int mSourceCh;
     int mTargetChannel;
 
