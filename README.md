@@ -219,6 +219,66 @@ FlightTrialResult
 
 ## 模块独立性
 
+> [!WARNING]
+> **当前模块独立性尚不能保证 GripForceSource 与未来的外部 SignalSource 同时接入。**
+>
+> BCI2000 的一条运行链通常只有一个 SignalSource：
+>
+> ```text
+> SignalSource -> SignalProcessing -> Application
+> ```
+>
+> 当前测试链为：
+>
+> ```text
+> GripForceSource -> DummySignalProcessing -> GripForceTask 或 GripFlightTask
+> ```
+>
+> `GripForceSource` 本身占用了唯一的 SignalSource 位置。未来接入外部设备提供的
+> `ExternalDeviceSource.exe` 时，不能把两个 Source 简单并排放进同一个 run。
+>
+> 推荐的最终结构是：
+>
+> ```text
+> ExternalDeviceSource
+>   + Mouse/Arduino Extension
+>         ↓
+> SignalProcessing
+>         ↓
+> GripForceTask 或 GripFlightTask
+> ```
+>
+> 在该结构中：
+>
+> - 外部设备信号由唯一的外部 SignalSource 产生；
+> - Arduino 和鼠标由挂载在 Source 上的 extension/logger 读取，并写成 BCI2000 state/event；
+> - trial、碰撞、反馈开始和任务结果等标记继续由 Application 写成 states；
+> - 外部设备信号、握力数据和任务 states 最终保存在同一个 `.dat` 中。
+>
+> `EnvironmentExtension` 通常需要在编译期链接进 Source EXE，并不能自动附加到任意外部
+> Source。如果外部 Source 是不可修改的封闭 EXE，而且没有 logger、EventLink 或其他扩展入口，
+> 就不能保证鼠标和 Arduino 自动接入，需要额外的桥接方案。
+>
+> 当前开发阶段可使用 SignalGenerator 模拟未来的外部 Source：
+>
+> ```text
+> SignalGenerator
+>   + MouseArduinoLogger extension
+>         ↓
+> DummySignalProcessing
+>         ↓
+> GripForceTask 或 GripFlightTask
+> ```
+>
+> 目前 Application 从 `GenericSignal` 的 `GripForceChannel` 读取握力。改用 extension 后，
+> 还需要让任务支持从 `GripForce` state/event 读取，或同时支持以下两种输入：
+>
+> - 从 `GenericSignal` channel 读取，用于外部设备的辅助模拟通道；
+> - 从 `GripForce` state/event 读取，用于 Mouse/Arduino extension。
+>
+> 如果实验要求高精度同步，优先将 Arduino 电压接入外部采集设备的辅助模拟通道，由同一个
+> 硬件时钟采集。软件串口 extension 更适合开发测试或同步精度要求较低的场景。
+
 BCI2000 使用下列模块链：
 
 ```text
